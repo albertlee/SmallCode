@@ -16,4 +16,4 @@ The proof-of-concept stage can already autonomously generate and run code, and i
 ![](docs/images/demo1.png)
 
 The generated code is still somewhat clumsy and does not leverage existing methods:
-![CodeGen](docs/images/demo1.png)
+![CodeGen](docs/images/demo2.png)
