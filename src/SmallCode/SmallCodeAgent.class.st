@@ -191,28 +191,24 @@ SmallCodeAgent >> mode: aSymbol [
 ]
 
 { #category : 'running' }
-SmallCodeAgent >> prepareSession: goal focus: focusObject [
-	"Set up messages for a new agent session."
+SmallCodeAgent >> plan: goal [
+	"Run the agent in read-only plan mode on a goal with no initial focus object.
+	 The agent investigates the image and produces an implementation plan
+	 instead of modifying anything."
 
-	messages := OrderedCollection new.
-	stepLog := OrderedCollection new.
-	vocabulary resetSession.
+	^ self plan: goal on: nil
+]
 
-	"Extract vocabulary from domain packages"
-	domainPackages do: [ :pkg | vocabulary extractFromPackageNamed: pkg ].
+{ #category : 'running' }
+SmallCodeAgent >> plan: goal on: focusObject [
+	"Run the agent in read-only plan mode. Mutating tools are disabled;
+	 the agent investigates and reports a structured implementation plan via finish.
+	 goal: a natural language task description.
+	 focusObject: optional object to inspect initially."
 
-	"System prompt with 4 sections"
-	messages add: (SmallCodeMessage system: self buildSystemPrompt).
-
-	"Focus object observation"
-	focusObject ifNotNil: [
-		| observation |
-		observation := projector projectWithDomain: focusObject.
-		messages add: (SmallCodeMessage user:
-				 'Initial focus object:' , String cr , observation) ].
-
-	"Goal"
-	messages add: (SmallCodeMessage user: 'GOAL: ' , goal)
+	self mode: #plan.
+	self prepareSession: goal focus: focusObject.
+	^ [self runLoop] fork
 ]
 
 { #category : 'system prompt' }
@@ -264,6 +260,31 @@ Call the finish tool with an "answer" containing an ordered implementation plan:
 6. Risks, open questions, and assumptions
 
 Be specific and concrete. The plan is your only deliverable — produce no code changes.'
+]
+
+{ #category : 'running' }
+SmallCodeAgent >> prepareSession: goal focus: focusObject [
+	"Set up messages for a new agent session."
+
+	messages := OrderedCollection new.
+	stepLog := OrderedCollection new.
+	vocabulary resetSession.
+
+	"Extract vocabulary from domain packages"
+	domainPackages do: [ :pkg | vocabulary extractFromPackageNamed: pkg ].
+
+	"System prompt with 4 sections"
+	messages add: (SmallCodeMessage system: self buildSystemPrompt).
+
+	"Focus object observation"
+	focusObject ifNotNil: [
+		| observation |
+		observation := projector projectWithDomain: focusObject.
+		messages add: (SmallCodeMessage user:
+				 'Initial focus object:' , String cr , observation) ].
+
+	"Goal"
+	messages add: (SmallCodeMessage user: 'GOAL: ' , goal)
 ]
 
 { #category : 'system prompt' }
@@ -325,27 +346,6 @@ SmallCodeAgent >> provider: aProvider [
 ]
 
 { #category : 'running' }
-SmallCodeAgent >> plan: goal [
-	"Run the agent in read-only plan mode on a goal with no initial focus object.
-	 The agent investigates the image and produces an implementation plan
-	 instead of modifying anything."
-
-	^ self plan: goal on: nil
-]
-
-{ #category : 'running' }
-SmallCodeAgent >> plan: goal on: focusObject [
-	"Run the agent in read-only plan mode. Mutating tools are disabled;
-	 the agent investigates and reports a structured implementation plan via finish.
-	 goal: a natural language task description.
-	 focusObject: optional object to inspect initially."
-
-	self mode: #plan.
-	self prepareSession: goal focus: focusObject.
-	^ self runLoop
-]
-
-{ #category : 'running' }
 SmallCodeAgent >> run: goal [
 	"Run the agent on a goal with no initial focus object."
 
@@ -360,7 +360,7 @@ SmallCodeAgent >> run: goal on: focusObject [
 
 	self mode: #build.
 	self prepareSession: goal focus: focusObject.
-	^ self runLoop
+	^ [self runLoop] fork
 ]
 
 { #category : 'running' }
