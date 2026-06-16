@@ -47,6 +47,8 @@ agent := SmallCodeAgent fromConfiguration .
 
 agent run: 'Say hello on Transcript.'.
 
+s := 'hello world this is a coding agent in smalltalk'.
+
 agent run: 'how many words in string s' on: s.
 
 agent run: 'create a package SmallCode-Demo'.
