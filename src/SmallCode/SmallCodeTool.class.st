@@ -29,6 +29,37 @@ SmallCodeTool class >> name: aName description: aDescription parameters: aParame
 		  yourself
 ]
 
+{ #category : 'execution' }
+SmallCodeTool >> applyTo: argumentsDictionary [
+	"Execute this tool with the given arguments."
+
+	^ block value: argumentsDictionary
+]
+
+{ #category : 'accessing' }
+SmallCodeTool >> block [
+
+	^ block
+]
+
+{ #category : 'accessing' }
+SmallCodeTool >> block: aBlock [
+
+	block := aBlock
+]
+
+{ #category : 'accessing' }
+SmallCodeTool >> description [
+
+	^ description
+]
+
+{ #category : 'accessing' }
+SmallCodeTool >> description: aString [
+
+	description := aString
+]
+
 { #category : 'initialization' }
 SmallCodeTool >> initializeWithName: aName description: aDescription parameters: aParametersSchema block: aBlock [
 
@@ -39,11 +70,16 @@ SmallCodeTool >> initializeWithName: aName description: aDescription parameters:
 	block := aBlock
 ]
 
-{ #category : 'execution' }
-SmallCodeTool >> applyTo: argumentsDictionary [
-	"Execute this tool with the given arguments."
+{ #category : 'accessing' }
+SmallCodeTool >> name [
 
-	^ block value: argumentsDictionary
+	^ name
+]
+
+{ #category : 'accessing' }
+SmallCodeTool >> name: aString [
+
+	name := aString
 ]
 
 { #category : 'converting' }
@@ -59,30 +95,6 @@ SmallCodeTool >> openAISchema [
 ]
 
 { #category : 'accessing' }
-SmallCodeTool >> name [
-
-	^ name
-]
-
-{ #category : 'accessing' }
-SmallCodeTool >> name: aString [
-
-	name := aString
-]
-
-{ #category : 'accessing' }
-SmallCodeTool >> description [
-
-	^ description
-]
-
-{ #category : 'accessing' }
-SmallCodeTool >> description: aString [
-
-	description := aString
-]
-
-{ #category : 'accessing' }
 SmallCodeTool >> parameters [
 
 	^ parameters
@@ -92,18 +104,6 @@ SmallCodeTool >> parameters [
 SmallCodeTool >> parameters: aDictionary [
 
 	parameters := aDictionary
-]
-
-{ #category : 'accessing' }
-SmallCodeTool >> block [
-
-	^ block
-]
-
-{ #category : 'accessing' }
-SmallCodeTool >> block: aBlock [
-
-	block := aBlock
 ]
 
 { #category : 'printing' }

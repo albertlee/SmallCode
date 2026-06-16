@@ -31,14 +31,45 @@ SmallCodeProjector class >> new [
 	^ super new initialize
 ]
 
-{ #category : 'initialization' }
-SmallCodeProjector >> initialize [
+{ #category : 'handles' }
+SmallCodeProjector >> allBindings [
+	"Return a Dictionary of handle->object for OpalCompiler bindings: injection."
 
-	super initialize.
-	handles := Dictionary new.
-	reverseMap := IdentityDictionary new.
-	counter := 0.
-	maxCollectionElements := 20
+	^ handles copy
+]
+
+{ #category : 'projecting - domain' }
+SmallCodeProjector >> domainView: anObject [
+	"Call all unary vocabulary selectors on anObject and return domain-level view.
+	 Returns a string of key=value pairs, or empty string if no vocabulary."
+
+	| results stream vocabSelectors |
+	vocabulary ifNil: [ ^ '' ].
+	vocabSelectors := vocabulary unarySelectorsFor: anObject class.
+	vocabSelectors ifEmpty: [ ^ '' ].
+	results := OrderedCollection new.
+	vocabSelectors do: [ :sel |
+		| val |
+		val := [ anObject perform: sel ]
+			       on: Error
+			       do: [ :e | nil ].
+		val ifNotNil: [ results add: sel -> (self shallowValue: val) ] ].
+	results ifEmpty: [ ^ '' ].
+	stream := WriteStream on: String new.
+	stream nextPutAll: 'Domain: '.
+	results doWithIndex: [ :assoc :i |
+		i > 1 ifTrue: [ stream nextPutAll: ', ' ].
+		stream
+			nextPutAll: assoc key;
+			nextPut: $=;
+			nextPutAll: assoc value ].
+	^ stream contents
+]
+
+{ #category : 'accessing' }
+SmallCodeProjector >> handleCount [
+
+	^ handles size
 ]
 
 { #category : 'handles' }
@@ -57,24 +88,51 @@ SmallCodeProjector >> handleFor: anObject [
 ]
 
 { #category : 'handles' }
-SmallCodeProjector >> objectAt: aHandle [
-	"Resolve a handle to the live object, or nil."
-
-	^ handles at: aHandle ifAbsent: [ nil ]
-]
-
-{ #category : 'handles' }
-SmallCodeProjector >> allBindings [
-	"Return a Dictionary of handle->object for OpalCompiler bindings: injection."
-
-	^ handles copy
-]
-
-{ #category : 'handles' }
 SmallCodeProjector >> handlesDo: aBlock [
 	"Iterate all handle->object pairs."
 
 	handles keysAndValuesDo: aBlock
+]
+
+{ #category : 'initialization' }
+SmallCodeProjector >> initialize [
+
+	super initialize.
+	handles := Dictionary new.
+	reverseMap := IdentityDictionary new.
+	counter := 0.
+	maxCollectionElements := 20
+]
+
+{ #category : 'private' }
+SmallCodeProjector >> isPrimitive: anObject [
+	"Return true for objects that should be inlined (no handle needed)."
+
+	^ anObject isNil or: [
+		  anObject isNumber or: [
+			  anObject isString or: [
+				  anObject isSymbol or: [
+					  anObject isCharacter or: [
+						  anObject isKindOf: Boolean ] ] ] ] ]
+]
+
+{ #category : 'accessing' }
+SmallCodeProjector >> maxCollectionElements [
+
+	^ maxCollectionElements
+]
+
+{ #category : 'accessing' }
+SmallCodeProjector >> maxCollectionElements: anInteger [
+
+	maxCollectionElements := anInteger
+]
+
+{ #category : 'handles' }
+SmallCodeProjector >> objectAt: aHandle [
+	"Resolve a handle to the live object, or nil."
+
+	^ handles at: aHandle ifAbsent: [ nil ]
 ]
 
 { #category : 'projecting' }
@@ -99,6 +157,48 @@ SmallCodeProjector >> project: anObject depth: level [
 	level >= 3 ifTrue: [ ^ self projectL3: anObject ].
 	
 	^ self projectL1: anObject
+]
+
+{ #category : 'projecting' }
+SmallCodeProjector >> projectCollectionDeep: aCollection [
+	"Project a collection with elements at L1."
+
+	| stream items |
+	stream := WriteStream on: String new.
+	stream nextPutAll: '#<'; nextPutAll: aCollection class name.
+	stream nextPutAll: ' @'; nextPutAll: (self handleFor: aCollection).
+	stream nextPutAll: ' size='; print: aCollection size.
+	items := aCollection size <= maxCollectionElements
+		         ifTrue: [ aCollection ]
+		         ifFalse: [ aCollection asOrderedCollection copyFrom: 1 to: maxCollectionElements ].
+	stream nextPutAll: ' ['.
+	items doWithIndex: [ :each :i |
+		i > 1 ifTrue: [ stream nextPutAll: ', ' ].
+		stream nextPutAll: (self project: each depth: 1) ].
+	aCollection size > maxCollectionElements ifTrue: [ stream nextPutAll: ', ...' ].
+	stream nextPutAll: ']>'.
+	^ stream contents
+]
+
+{ #category : 'projecting' }
+SmallCodeProjector >> projectCollectionShallow: aCollection [
+	"Project a collection with element count and first N elements at L0."
+
+	| stream items |
+	stream := WriteStream on: String new.
+	stream nextPutAll: '#<'; nextPutAll: aCollection class name.
+	stream nextPutAll: ' @'; nextPutAll: (self handleFor: aCollection).
+	stream nextPutAll: ' size='; print: aCollection size.
+	items := aCollection size <= maxCollectionElements
+		         ifTrue: [ aCollection ]
+		         ifFalse: [ aCollection asOrderedCollection copyFrom: 1 to: maxCollectionElements ].
+	stream nextPutAll: ' | '.
+	items doWithIndex: [ :each :i |
+		i > 1 ifTrue: [ stream nextPutAll: ', ' ].
+		stream nextPutAll: (self shallowValue: each) ].
+	aCollection size > maxCollectionElements ifTrue: [ stream nextPutAll: ', ...' ].
+	stream nextPut: $>.
+	^ stream contents
 ]
 
 { #category : 'projecting' }
@@ -163,48 +263,6 @@ SmallCodeProjector >> projectL3: anObject [
 ]
 
 { #category : 'projecting' }
-SmallCodeProjector >> projectCollectionShallow: aCollection [
-	"Project a collection with element count and first N elements at L0."
-
-	| stream items |
-	stream := WriteStream on: String new.
-	stream nextPutAll: '#<'; nextPutAll: aCollection class name.
-	stream nextPutAll: ' @'; nextPutAll: (self handleFor: aCollection).
-	stream nextPutAll: ' size='; print: aCollection size.
-	items := aCollection size <= maxCollectionElements
-		         ifTrue: [ aCollection ]
-		         ifFalse: [ aCollection asOrderedCollection copyFrom: 1 to: maxCollectionElements ].
-	stream nextPutAll: ' | '.
-	items doWithIndex: [ :each :i |
-		i > 1 ifTrue: [ stream nextPutAll: ', ' ].
-		stream nextPutAll: (self shallowValue: each) ].
-	aCollection size > maxCollectionElements ifTrue: [ stream nextPutAll: ', ...' ].
-	stream nextPut: $>.
-	^ stream contents
-]
-
-{ #category : 'projecting' }
-SmallCodeProjector >> projectCollectionDeep: aCollection [
-	"Project a collection with elements at L1."
-
-	| stream items |
-	stream := WriteStream on: String new.
-	stream nextPutAll: '#<'; nextPutAll: aCollection class name.
-	stream nextPutAll: ' @'; nextPutAll: (self handleFor: aCollection).
-	stream nextPutAll: ' size='; print: aCollection size.
-	items := aCollection size <= maxCollectionElements
-		         ifTrue: [ aCollection ]
-		         ifFalse: [ aCollection asOrderedCollection copyFrom: 1 to: maxCollectionElements ].
-	stream nextPutAll: ' ['.
-	items doWithIndex: [ :each :i |
-		i > 1 ifTrue: [ stream nextPutAll: ', ' ].
-		stream nextPutAll: (self project: each depth: 1) ].
-	aCollection size > maxCollectionElements ifTrue: [ stream nextPutAll: ', ...' ].
-	stream nextPutAll: ']>'.
-	^ stream contents
-]
-
-{ #category : 'projecting' }
 SmallCodeProjector >> projectMethod: aCompiledMethod [
 	"Project a CompiledMethod as a structured description."
 
@@ -224,34 +282,6 @@ SmallCodeProjector >> projectMethod: aCompiledMethod [
 ]
 
 { #category : 'projecting - domain' }
-SmallCodeProjector >> domainView: anObject [
-	"Call all unary vocabulary selectors on anObject and return domain-level view.
-	 Returns a string of key=value pairs, or empty string if no vocabulary."
-
-	| results stream vocabSelectors |
-	vocabulary ifNil: [ ^ '' ].
-	vocabSelectors := vocabulary unarySelectorsFor: anObject class.
-	vocabSelectors ifEmpty: [ ^ '' ].
-	results := OrderedCollection new.
-	vocabSelectors do: [ :sel |
-		| val |
-		val := [ anObject perform: sel ]
-			       on: Error
-			       do: [ :e | nil ].
-		val ifNotNil: [ results add: sel -> (self shallowValue: val) ] ].
-	results ifEmpty: [ ^ '' ].
-	stream := WriteStream on: String new.
-	stream nextPutAll: 'Domain: '.
-	results doWithIndex: [ :assoc :i |
-		i > 1 ifTrue: [ stream nextPutAll: ', ' ].
-		stream
-			nextPutAll: assoc key;
-			nextPut: $=;
-			nextPutAll: assoc value ].
-	^ stream contents
-]
-
-{ #category : 'projecting - domain' }
 SmallCodeProjector >> projectWithDomain: anObject [
 	"Project at L1 with domain view appended."
 
@@ -260,6 +290,15 @@ SmallCodeProjector >> projectWithDomain: anObject [
 	domain := self domainView: anObject.
 	domain ifEmpty: [ ^ base ].
 	^ base , String cr , domain
+]
+
+{ #category : 'initialization' }
+SmallCodeProjector >> reset [
+	"Clear all handles."
+
+	handles removeAll.
+	reverseMap removeAll.
+	counter := 0
 ]
 
 { #category : 'private' }
@@ -272,18 +311,6 @@ SmallCodeProjector >> shallowValue: aValue [
 	^ '#<' , aValue class name , ' @' , (self handleFor: aValue) , '>'
 ]
 
-{ #category : 'private' }
-SmallCodeProjector >> isPrimitive: anObject [
-	"Return true for objects that should be inlined (no handle needed)."
-
-	^ anObject isNil or: [
-		  anObject isNumber or: [
-			  anObject isString or: [
-				  anObject isSymbol or: [
-					  anObject isCharacter or: [
-						  anObject isKindOf: Boolean ] ] ] ] ]
-]
-
 { #category : 'accessing' }
 SmallCodeProjector >> vocabulary [
 
@@ -294,31 +321,4 @@ SmallCodeProjector >> vocabulary [
 SmallCodeProjector >> vocabulary: aSmallCodeVocabulary [
 
 	vocabulary := aSmallCodeVocabulary
-]
-
-{ #category : 'accessing' }
-SmallCodeProjector >> maxCollectionElements [
-
-	^ maxCollectionElements
-]
-
-{ #category : 'accessing' }
-SmallCodeProjector >> maxCollectionElements: anInteger [
-
-	maxCollectionElements := anInteger
-]
-
-{ #category : 'accessing' }
-SmallCodeProjector >> handleCount [
-
-	^ handles size
-]
-
-{ #category : 'initialization' }
-SmallCodeProjector >> reset [
-	"Clear all handles."
-
-	handles removeAll.
-	reverseMap removeAll.
-	counter := 0
 ]

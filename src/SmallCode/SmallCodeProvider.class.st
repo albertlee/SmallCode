@@ -23,6 +23,37 @@ SmallCodeProvider class >> fromConfiguration [
 	self subclassResponsibility
 ]
 
+{ #category : 'accessing' }
+SmallCodeProvider >> apiKey [
+
+	^ apiKey
+]
+
+{ #category : 'accessing' }
+SmallCodeProvider >> apiKey: aString [
+
+	apiKey := aString
+]
+
+{ #category : 'accessing' }
+SmallCodeProvider >> baseURL [
+
+	^ baseURL
+]
+
+{ #category : 'accessing' }
+SmallCodeProvider >> baseURL: aString [
+
+	baseURL := aString
+]
+
+{ #category : 'private' }
+SmallCodeProvider >> buildMessagesPayload: messages [
+	"Convert SmallCodeMessage collection to OpenAI JSON array."
+
+	^ (messages collect: [ :msg | msg asOpenAIDict ]) asArray
+]
+
 { #category : 'api' }
 SmallCodeProvider >> complete: messages [
 	"Send messages without tools. Returns a SmallCodeMessage."
@@ -40,52 +71,10 @@ SmallCodeProvider >> complete: messages tools: toolSchemas [
 	self subclassResponsibility
 ]
 
-{ #category : 'accessing' }
-SmallCodeProvider >> apiKey [
+{ #category : 'testing' }
+SmallCodeProvider >> isConfigured [
 
-	^ apiKey
-]
-
-{ #category : 'accessing' }
-SmallCodeProvider >> apiKey: aString [
-
-	apiKey := aString
-]
-
-{ #category : 'accessing' }
-SmallCodeProvider >> model [
-
-	^ model
-]
-
-{ #category : 'accessing' }
-SmallCodeProvider >> model: aString [
-
-	model := aString
-]
-
-{ #category : 'accessing' }
-SmallCodeProvider >> baseURL [
-
-	^ baseURL
-]
-
-{ #category : 'accessing' }
-SmallCodeProvider >> baseURL: aString [
-
-	baseURL := aString
-]
-
-{ #category : 'accessing' }
-SmallCodeProvider >> temperature [
-
-	^ temperature
-]
-
-{ #category : 'accessing' }
-SmallCodeProvider >> temperature: aNumber [
-
-	temperature := aNumber
+	^ apiKey isNotNil and: [ apiKey isNotEmpty ]
 ]
 
 { #category : 'accessing' }
@@ -100,17 +89,16 @@ SmallCodeProvider >> maxTokens: anInteger [
 	maxTokens := anInteger
 ]
 
-{ #category : 'testing' }
-SmallCodeProvider >> isConfigured [
+{ #category : 'accessing' }
+SmallCodeProvider >> model [
 
-	^ apiKey isNotNil and: [ apiKey isNotEmpty ]
+	^ model
 ]
 
-{ #category : 'private' }
-SmallCodeProvider >> buildMessagesPayload: messages [
-	"Convert SmallCodeMessage collection to OpenAI JSON array."
+{ #category : 'accessing' }
+SmallCodeProvider >> model: aString [
 
-	^ (messages collect: [ :msg | msg asOpenAIDict ]) asArray
+	model := aString
 ]
 
 { #category : 'printing' }
@@ -121,4 +109,16 @@ SmallCodeProvider >> printOn: aStream [
 		nextPutAll: '(';
 		nextPutAll: (model ifNil: [ '?' ]);
 		nextPut: $)
+]
+
+{ #category : 'accessing' }
+SmallCodeProvider >> temperature [
+
+	^ temperature
+]
+
+{ #category : 'accessing' }
+SmallCodeProvider >> temperature: aNumber [
+
+	temperature := aNumber
 ]

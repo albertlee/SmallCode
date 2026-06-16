@@ -15,16 +15,6 @@ Class {
 }
 
 { #category : 'instance creation' }
-SmallCodeToolCall class >> id: anId functionName: aName arguments: aDict [
-
-	^ self new
-		  id: anId;
-		  functionName: aName;
-		  arguments: aDict;
-		  yourself
-]
-
-{ #category : 'instance creation' }
 SmallCodeToolCall class >> fromOpenAIDict: aDict [
 	"Parse from OpenAI response format:
 	 {id: 'call_xxx', type: 'function', function: {name: '...', arguments: '{...}'}}"
@@ -44,28 +34,14 @@ SmallCodeToolCall class >> fromOpenAIDict: aDict [
 		  arguments: parsedArgs
 ]
 
-{ #category : 'accessing' }
-SmallCodeToolCall >> id [
+{ #category : 'instance creation' }
+SmallCodeToolCall class >> id: anId functionName: aName arguments: aDict [
 
-	^ id
-]
-
-{ #category : 'accessing' }
-SmallCodeToolCall >> id: aString [
-
-	id := aString
-]
-
-{ #category : 'accessing' }
-SmallCodeToolCall >> functionName [
-
-	^ functionName
-]
-
-{ #category : 'accessing' }
-SmallCodeToolCall >> functionName: aString [
-
-	functionName := aString
+	^ self new
+		  id: anId;
+		  functionName: aName;
+		  arguments: aDict;
+		  yourself
 ]
 
 { #category : 'accessing' }
@@ -90,6 +66,30 @@ SmallCodeToolCall >> asOpenAIDict [
 		  with: 'function' -> (Dictionary
 				   with: 'name' -> functionName
 				   with: 'arguments' -> (STONJSON toString: arguments))
+]
+
+{ #category : 'accessing' }
+SmallCodeToolCall >> functionName [
+
+	^ functionName
+]
+
+{ #category : 'accessing' }
+SmallCodeToolCall >> functionName: aString [
+
+	functionName := aString
+]
+
+{ #category : 'accessing' }
+SmallCodeToolCall >> id [
+
+	^ id
+]
+
+{ #category : 'accessing' }
+SmallCodeToolCall >> id: aString [
+
+	id := aString
 ]
 
 { #category : 'printing' }

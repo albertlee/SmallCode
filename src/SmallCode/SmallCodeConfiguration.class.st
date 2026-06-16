@@ -36,20 +36,6 @@ SmallCodeConfiguration class >> reset [
 	current := nil
 ]
 
-{ #category : 'initialization' }
-SmallCodeConfiguration >> initialize [
-
-	super initialize.
-	baseURL := 'https://openrouter.ai/api/v1'.
-	model := 'google/gemini-2.5-flash'.
-	temperature := 0.2.
-	maxTokens := 8192.
-	maxAgentSteps := 20.
-	sandboxEnabled := true.
-	sandboxTimeout := 5000.
-	domainPackages := OrderedCollection new
-]
-
 { #category : 'accessing' }
 SmallCodeConfiguration >> apiKey [
 
@@ -60,18 +46,6 @@ SmallCodeConfiguration >> apiKey [
 SmallCodeConfiguration >> apiKey: aString [
 
 	apiKey := aString
-]
-
-{ #category : 'accessing' }
-SmallCodeConfiguration >> model [
-
-	^ model
-]
-
-{ #category : 'accessing' }
-SmallCodeConfiguration >> model: aString [
-
-	model := aString
 ]
 
 { #category : 'accessing' }
@@ -87,15 +61,47 @@ SmallCodeConfiguration >> baseURL: aString [
 ]
 
 { #category : 'accessing' }
-SmallCodeConfiguration >> temperature [
+SmallCodeConfiguration >> domainPackages [
 
-	^ temperature
+	^ domainPackages
 ]
 
 { #category : 'accessing' }
-SmallCodeConfiguration >> temperature: aNumber [
+SmallCodeConfiguration >> domainPackages: aCollection [
 
-	temperature := aNumber
+	domainPackages := aCollection asOrderedCollection
+]
+
+{ #category : 'initialization' }
+SmallCodeConfiguration >> initialize [
+
+	super initialize.
+	baseURL := 'https://openrouter.ai/api/v1'.
+	model := 'google/gemini-2.5-flash'.
+	temperature := 0.2.
+	maxTokens := 8192.
+	maxAgentSteps := 20.
+	sandboxEnabled := true.
+	sandboxTimeout := 5000.
+	domainPackages := OrderedCollection new
+]
+
+{ #category : 'testing' }
+SmallCodeConfiguration >> isConfigured [
+
+	^ apiKey isNotNil and: [ apiKey isNotEmpty ]
+]
+
+{ #category : 'accessing' }
+SmallCodeConfiguration >> maxAgentSteps [
+
+	^ maxAgentSteps
+]
+
+{ #category : 'accessing' }
+SmallCodeConfiguration >> maxAgentSteps: anInteger [
+
+	maxAgentSteps := anInteger
 ]
 
 { #category : 'accessing' }
@@ -111,15 +117,15 @@ SmallCodeConfiguration >> maxTokens: anInteger [
 ]
 
 { #category : 'accessing' }
-SmallCodeConfiguration >> maxAgentSteps [
+SmallCodeConfiguration >> model [
 
-	^ maxAgentSteps
+	^ model
 ]
 
 { #category : 'accessing' }
-SmallCodeConfiguration >> maxAgentSteps: anInteger [
+SmallCodeConfiguration >> model: aString [
 
-	maxAgentSteps := anInteger
+	model := aString
 ]
 
 { #category : 'accessing' }
@@ -147,21 +153,15 @@ SmallCodeConfiguration >> sandboxTimeout: anInteger [
 ]
 
 { #category : 'accessing' }
-SmallCodeConfiguration >> domainPackages [
+SmallCodeConfiguration >> temperature [
 
-	^ domainPackages
+	^ temperature
 ]
 
 { #category : 'accessing' }
-SmallCodeConfiguration >> domainPackages: aCollection [
+SmallCodeConfiguration >> temperature: aNumber [
 
-	domainPackages := aCollection asOrderedCollection
-]
-
-{ #category : 'testing' }
-SmallCodeConfiguration >> isConfigured [
-
-	^ apiKey isNotNil and: [ apiKey isNotEmpty ]
+	temperature := aNumber
 ]
 
 { #category : 'validation' }

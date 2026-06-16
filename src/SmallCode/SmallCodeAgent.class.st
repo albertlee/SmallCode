@@ -35,14 +35,6 @@ Class {
 }
 
 { #category : 'instance creation' }
-SmallCodeAgent class >> withProvider: aProvider [
-
-	^ self new
-		  provider: aProvider;
-		  yourself
-]
-
-{ #category : 'instance creation' }
 SmallCodeAgent class >> fromConfiguration [
 	"Create from global SmallCodeConfiguration."
 
@@ -52,6 +44,78 @@ SmallCodeAgent class >> fromConfiguration [
 	agent maxSteps: config maxAgentSteps.
 	agent domainPackages: config domainPackages.
 	^ agent
+]
+
+{ #category : 'instance creation' }
+SmallCodeAgent class >> withProvider: aProvider [
+
+	^ self new
+		  provider: aProvider;
+		  yourself
+]
+
+{ #category : 'system prompt' }
+SmallCodeAgent >> buildSystemPrompt [
+	"Build the 4-section system prompt."
+
+	^ String streamContents: [ :s |
+		  s nextPutAll: self identitySection; cr; cr.
+		  s nextPutAll: self vocabularySection; cr; cr.
+		  s nextPutAll: self principlesSection ]
+]
+
+{ #category : 'private' }
+SmallCodeAgent >> callLLM [
+	"Send current messages to LLM with tool schemas."
+
+	| toolSchemas |
+	toolSchemas := toolFactory allToolSchemas.
+	^ provider complete: messages tools: toolSchemas
+]
+
+{ #category : 'accessing' }
+SmallCodeAgent >> domainPackages [
+
+	^ domainPackages
+]
+
+{ #category : 'accessing' }
+SmallCodeAgent >> domainPackages: aCollection [
+
+	domainPackages := aCollection asOrderedCollection
+]
+
+{ #category : 'private' }
+SmallCodeAgent >> executeToolCalls: toolCalls [
+	"Execute all tool calls and add results as tool messages."
+
+	^ toolCalls collect: [ :tc |
+		  | result resultJson |
+		  self logStep: 0 event: 'Executing tool: ' , tc functionName , ' args: ' , tc arguments printString.
+		  result := toolFactory executeTool: tc functionName arguments: tc arguments.
+		  resultJson := STONJSON toString: result.
+		  messages add: (SmallCodeMessage toolResult: resultJson callId: tc id).
+		  self logStep: 0 event: 'Tool result: ' , (resultJson copyFrom: 1 to: (resultJson size min: 200)).
+		  result ]
+]
+
+{ #category : 'system prompt' }
+SmallCodeAgent >> identitySection [
+
+	^ '# Identity
+You are SmallCode, a coding agent living inside a Pharo Smalltalk image.
+You observe live objects via handles (@obj_N), evaluate code, compile methods,
+and run tests. All objects in the image are live — you can inspect, modify,
+and extend them through tools.
+
+You operate through a coding-eval-inspect-debug cycle:
+1. Understand the goal
+2. Browse/inspect existing code and objects
+3. Write and compile new code (classes, methods)
+4. Evaluate expressions to test behavior
+5. Inspect results, debug if needed
+6. Run tests to verify correctness
+7. Call finish with the result and any new vocabulary created'
 ]
 
 { #category : 'initialization' }
@@ -68,21 +132,31 @@ SmallCodeAgent >> initialize [
 	stepLog := OrderedCollection new
 ]
 
-{ #category : 'running' }
-SmallCodeAgent >> run: goal [
-	"Run the agent on a goal with no initial focus object."
+{ #category : 'private' }
+SmallCodeAgent >> logStep: stepNum event: aString [
 
-	^ self run: goal on: nil
+	| entry |
+	entry := 'Step ' , stepNum printString , ': ' , aString.
+	stepLog add: entry.
+	Transcript showln: '[SmallCode] ' , entry
 ]
 
-{ #category : 'running' }
-SmallCodeAgent >> run: goal on: focusObject [
-	"Main entry point. Run the agent loop until finish or maxSteps.
-	 goal: a natural language task description.
-	 focusObject: optional object to inspect initially."
+{ #category : 'accessing' }
+SmallCodeAgent >> maxSteps [
 
-	self prepareSession: goal focus: focusObject.
-	^ self runLoop
+	^ maxSteps
+]
+
+{ #category : 'accessing' }
+SmallCodeAgent >> maxSteps: anInteger [
+
+	maxSteps := anInteger
+]
+
+{ #category : 'accessing' }
+SmallCodeAgent >> messages [
+
+	^ messages
 ]
 
 { #category : 'running' }
@@ -108,113 +182,6 @@ SmallCodeAgent >> prepareSession: goal focus: focusObject [
 
 	"Goal"
 	messages add: (SmallCodeMessage user: 'GOAL: ' , goal)
-]
-
-{ #category : 'running' }
-SmallCodeAgent >> runLoop [
-	"Execute the perceive-decide-execute loop."
-
-	1 to: maxSteps do: [ :stepNum |
-		| response |
-		self logStep: stepNum event: 'Calling LLM...'.
-		response := self callLLM.
-		messages add: response.
-
-		response hasToolCalls
-			ifTrue: [
-				| results finished |
-				results := self executeToolCalls: response toolCalls.
-				finished := results anySatisfy: [ :r |
-					            (r at: 'finished' ifAbsent: [ false ]) = true ].
-				finished ifTrue: [
-					| finishResult |
-					finishResult := results detect: [ :r |
-						                (r at: 'finished' ifAbsent: [ false ]) = true ].
-					self logStep: stepNum event: 'FINISHED: ' , (finishResult at: 'answer').
-					^ finishResult ] ]
-			ifFalse: [
-				"Text-only response with no tool calls — treat as thinking, continue"
-				self logStep: stepNum event: 'Assistant text: ' , (response content copyFrom: 1 to: (response content size min: 100)).
-				"If the response seems like a final answer (no tool calls, conversation done), finish"
-				stepNum > 1 ifTrue: [
-					"Give it one more turn to use finish tool, but don't infinite loop on text-only responses"
-					messages add: (SmallCodeMessage user:
-						'Please use the finish tool to report your final answer, or continue using tools to complete the task.') ] ] ].
-
-	self logStep: maxSteps event: 'Max steps reached'.
-	^ Dictionary
-		  with: 'finished' -> true
-		  with: 'answer' -> 'Max steps reached without explicit finish.'
-		  with: 'steps' -> maxSteps
-]
-
-{ #category : 'private' }
-SmallCodeAgent >> callLLM [
-	"Send current messages to LLM with tool schemas."
-
-	| toolSchemas |
-	toolSchemas := toolFactory allToolSchemas.
-	^ provider complete: messages tools: toolSchemas
-]
-
-{ #category : 'private' }
-SmallCodeAgent >> executeToolCalls: toolCalls [
-	"Execute all tool calls and add results as tool messages."
-
-	^ toolCalls collect: [ :tc |
-		  | result resultJson |
-		  self logStep: 0 event: 'Executing tool: ' , tc functionName , ' args: ' , tc arguments printString.
-		  result := toolFactory executeTool: tc functionName arguments: tc arguments.
-		  resultJson := STONJSON toString: result.
-		  messages add: (SmallCodeMessage toolResult: resultJson callId: tc id).
-		  self logStep: 0 event: 'Tool result: ' , (resultJson copyFrom: 1 to: (resultJson size min: 200)).
-		  result ]
-]
-
-{ #category : 'system prompt' }
-SmallCodeAgent >> buildSystemPrompt [
-	"Build the 4-section system prompt."
-
-	^ String streamContents: [ :s |
-		  s nextPutAll: self identitySection; cr; cr.
-		  s nextPutAll: self vocabularySection; cr; cr.
-		  s nextPutAll: self principlesSection ]
-]
-
-{ #category : 'system prompt' }
-SmallCodeAgent >> identitySection [
-
-	^ '# Identity
-You are SmallCode, a coding agent living inside a Pharo Smalltalk image.
-You observe live objects via handles (@obj_N), evaluate code, compile methods,
-and run tests. All objects in the image are live — you can inspect, modify,
-and extend them through tools.
-
-You operate through a coding-eval-inspect-debug cycle:
-1. Understand the goal
-2. Browse/inspect existing code and objects
-3. Write and compile new code (classes, methods)
-4. Evaluate expressions to test behavior
-5. Inspect results, debug if needed
-6. Run tests to verify correctness
-7. Call finish with the result and any new vocabulary created'
-]
-
-{ #category : 'system prompt' }
-SmallCodeAgent >> vocabularySection [
-
-	| vocabText |
-	vocabText := vocabulary formatForPrompt.
-	vocabText ifEmpty: [ vocabText := '(no domain vocabulary extracted yet — use the vocabulary tool to discover existing words)' ].
-	^ '# Domain Vocabulary
-
-The following selectors are the current domain language.
-PREFER using these existing words over inventing new ones.
-When you need to express an action or query, FIRST check if a vocabulary word already covers it.
-
-' , vocabText , '
-## Session-Created Vocabulary
-' , vocabulary formatSessionCreatedForPrompt
 ]
 
 { #category : 'system prompt' }
@@ -257,13 +224,10 @@ Every task produces two things:
 Report both when calling finish.'
 ]
 
-{ #category : 'private' }
-SmallCodeAgent >> logStep: stepNum event: aString [
+{ #category : 'accessing' }
+SmallCodeAgent >> projector [
 
-	| entry |
-	entry := 'Step ' , stepNum printString , ': ' , aString.
-	stepLog add: entry.
-	Transcript showln: '[SmallCode] ' , entry
+	^ projector
 ]
 
 { #category : 'accessing' }
@@ -278,16 +242,65 @@ SmallCodeAgent >> provider: aProvider [
 	provider := aProvider
 ]
 
-{ #category : 'accessing' }
-SmallCodeAgent >> projector [
+{ #category : 'running' }
+SmallCodeAgent >> run: goal [
+	"Run the agent on a goal with no initial focus object."
 
-	^ projector
+	^ self run: goal on: nil
+]
+
+{ #category : 'running' }
+SmallCodeAgent >> run: goal on: focusObject [
+	"Main entry point. Run the agent loop until finish or maxSteps.
+	 goal: a natural language task description.
+	 focusObject: optional object to inspect initially."
+
+	self prepareSession: goal focus: focusObject.
+	^ self runLoop
+]
+
+{ #category : 'running' }
+SmallCodeAgent >> runLoop [
+	"Execute the perceive-decide-execute loop."
+
+	1 to: maxSteps do: [ :stepNum |
+		| response |
+		self logStep: stepNum event: 'Calling LLM...'.
+		response := self callLLM.
+		messages add: response.
+
+		response hasToolCalls
+			ifTrue: [
+				| results finished |
+				results := self executeToolCalls: response toolCalls.
+				finished := results anySatisfy: [ :r |
+					            (r at: 'finished' ifAbsent: [ false ]) = true ].
+				finished ifTrue: [
+					| finishResult |
+					finishResult := results detect: [ :r |
+						                (r at: 'finished' ifAbsent: [ false ]) = true ].
+					self logStep: stepNum event: 'FINISHED: ' , (finishResult at: 'answer').
+					^ finishResult ] ]
+			ifFalse: [
+				"Text-only response with no tool calls — treat as thinking, continue"
+				self logStep: stepNum event: 'Assistant text: ' , (response content copyFrom: 1 to: (response content size min: 100)).
+				"If the response seems like a final answer (no tool calls, conversation done), finish"
+				stepNum > 1 ifTrue: [
+					"Give it one more turn to use finish tool, but don't infinite loop on text-only responses"
+					messages add: (SmallCodeMessage user:
+						'Please use the finish tool to report your final answer, or continue using tools to complete the task.') ] ] ].
+
+	self logStep: maxSteps event: 'Max steps reached'.
+	^ Dictionary
+		  with: 'finished' -> true
+		  with: 'answer' -> 'Max steps reached without explicit finish.'
+		  with: 'steps' -> maxSteps
 ]
 
 { #category : 'accessing' }
-SmallCodeAgent >> vocabulary [
+SmallCodeAgent >> stepLog [
 
-	^ vocabulary
+	^ stepLog
 ]
 
 { #category : 'accessing' }
@@ -297,37 +310,24 @@ SmallCodeAgent >> toolFactory [
 ]
 
 { #category : 'accessing' }
-SmallCodeAgent >> messages [
+SmallCodeAgent >> vocabulary [
 
-	^ messages
+	^ vocabulary
 ]
 
-{ #category : 'accessing' }
-SmallCodeAgent >> maxSteps [
+{ #category : 'system prompt' }
+SmallCodeAgent >> vocabularySection [
 
-	^ maxSteps
-]
+	| vocabText |
+	vocabText := vocabulary formatForPrompt.
+	vocabText ifEmpty: [ vocabText := '(no domain vocabulary extracted yet — use the vocabulary tool to discover existing words)' ].
+	^ '# Domain Vocabulary
 
-{ #category : 'accessing' }
-SmallCodeAgent >> maxSteps: anInteger [
+The following selectors are the current domain language.
+PREFER using these existing words over inventing new ones.
+When you need to express an action or query, FIRST check if a vocabulary word already covers it.
 
-	maxSteps := anInteger
-]
-
-{ #category : 'accessing' }
-SmallCodeAgent >> domainPackages [
-
-	^ domainPackages
-]
-
-{ #category : 'accessing' }
-SmallCodeAgent >> domainPackages: aCollection [
-
-	domainPackages := aCollection asOrderedCollection
-]
-
-{ #category : 'accessing' }
-SmallCodeAgent >> stepLog [
-
-	^ stepLog
+' , vocabText , '
+## Session-Created Vocabulary
+' , vocabulary formatSessionCreatedForPrompt
 ]

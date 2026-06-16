@@ -18,27 +18,6 @@ Class {
 }
 
 { #category : 'instance creation' }
-SmallCodeMessage class >> role: aRole content: aString [
-
-	^ self new
-		  role: aRole;
-		  content: aString;
-		  yourself
-]
-
-{ #category : 'instance creation' }
-SmallCodeMessage class >> system: aString [
-
-	^ self role: 'system' content: aString
-]
-
-{ #category : 'instance creation' }
-SmallCodeMessage class >> user: aString [
-
-	^ self role: 'user' content: aString
-]
-
-{ #category : 'instance creation' }
 SmallCodeMessage class >> assistant: aString [
 
 	^ self role: 'assistant' content: aString
@@ -55,6 +34,21 @@ SmallCodeMessage class >> assistantWithToolCalls: aToolCallsArray [
 ]
 
 { #category : 'instance creation' }
+SmallCodeMessage class >> role: aRole content: aString [
+
+	^ self new
+		  role: aRole;
+		  content: aString;
+		  yourself
+]
+
+{ #category : 'instance creation' }
+SmallCodeMessage class >> system: aString [
+
+	^ self role: 'system' content: aString
+]
+
+{ #category : 'instance creation' }
 SmallCodeMessage class >> toolResult: aString callId: anId [
 
 	^ self new
@@ -64,76 +58,10 @@ SmallCodeMessage class >> toolResult: aString callId: anId [
 		  yourself
 ]
 
-{ #category : 'accessing' }
-SmallCodeMessage >> role [
+{ #category : 'instance creation' }
+SmallCodeMessage class >> user: aString [
 
-	^ role
-]
-
-{ #category : 'accessing' }
-SmallCodeMessage >> role: aString [
-
-	role := aString
-]
-
-{ #category : 'accessing' }
-SmallCodeMessage >> content [
-
-	^ content
-]
-
-{ #category : 'accessing' }
-SmallCodeMessage >> content: aString [
-
-	content := aString
-]
-
-{ #category : 'accessing' }
-SmallCodeMessage >> toolCalls [
-
-	^ toolCalls
-]
-
-{ #category : 'accessing' }
-SmallCodeMessage >> toolCalls: anArray [
-
-	toolCalls := anArray
-]
-
-{ #category : 'accessing' }
-SmallCodeMessage >> toolCallId [
-
-	^ toolCallId
-]
-
-{ #category : 'accessing' }
-SmallCodeMessage >> toolCallId: aString [
-
-	toolCallId := aString
-]
-
-{ #category : 'accessing' }
-SmallCodeMessage >> name [
-
-	^ name
-]
-
-{ #category : 'accessing' }
-SmallCodeMessage >> name: aString [
-
-	name := aString
-]
-
-{ #category : 'testing' }
-SmallCodeMessage >> hasToolCalls [
-
-	^ toolCalls isNotNil and: [ toolCalls isNotEmpty ]
-]
-
-{ #category : 'testing' }
-SmallCodeMessage >> isToolResult [
-
-	^ role = 'tool'
+	^ self role: 'user' content: aString
 ]
 
 { #category : 'converting' }
@@ -152,6 +80,42 @@ SmallCodeMessage >> asOpenAIDict [
 	^ dict
 ]
 
+{ #category : 'accessing' }
+SmallCodeMessage >> content [
+
+	^ content
+]
+
+{ #category : 'accessing' }
+SmallCodeMessage >> content: aString [
+
+	content := aString
+]
+
+{ #category : 'testing' }
+SmallCodeMessage >> hasToolCalls [
+
+	^ toolCalls isNotNil and: [ toolCalls isNotEmpty ]
+]
+
+{ #category : 'testing' }
+SmallCodeMessage >> isToolResult [
+
+	^ role = 'tool'
+]
+
+{ #category : 'accessing' }
+SmallCodeMessage >> name [
+
+	^ name
+]
+
+{ #category : 'accessing' }
+SmallCodeMessage >> name: aString [
+
+	name := aString
+]
+
 { #category : 'printing' }
 SmallCodeMessage >> printOn: aStream [
 
@@ -164,4 +128,40 @@ SmallCodeMessage >> printOn: aStream [
 	self hasToolCalls ifTrue: [
 		aStream nextPutAll: ' ['; print: toolCalls size; nextPutAll: ' tool_calls]' ].
 	aStream nextPut: $)
+]
+
+{ #category : 'accessing' }
+SmallCodeMessage >> role [
+
+	^ role
+]
+
+{ #category : 'accessing' }
+SmallCodeMessage >> role: aString [
+
+	role := aString
+]
+
+{ #category : 'accessing' }
+SmallCodeMessage >> toolCallId [
+
+	^ toolCallId
+]
+
+{ #category : 'accessing' }
+SmallCodeMessage >> toolCallId: aString [
+
+	toolCallId := aString
+]
+
+{ #category : 'accessing' }
+SmallCodeMessage >> toolCalls [
+
+	^ toolCalls
+]
+
+{ #category : 'accessing' }
+SmallCodeMessage >> toolCalls: anArray [
+
+	toolCalls := anArray
 ]
