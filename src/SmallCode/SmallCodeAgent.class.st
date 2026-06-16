@@ -16,6 +16,12 @@ Usage:
 
   With focus object:
   result := agent run: 'Explain this object' on: someObject.
+
+Plan mode (read-only): the agent investigates the image but cannot modify it
+(mutating tools are disabled). It produces a structured implementation plan
+returned via the finish tool.
+  result := agent plan: 'Add an undo feature to the Stack class'.
+  result := agent plan: 'How would I refactor this?' on: someObject.
 "
 Class {
 	#name : 'SmallCodeAgent',
@@ -28,7 +34,8 @@ Class {
 		'messages',
 		'maxSteps',
 		'domainPackages',
-		'stepLog'
+		'stepLog',
+		'mode'
 	],
 	#category : 'SmallCode',
 	#package : 'SmallCode'
@@ -56,20 +63,27 @@ SmallCodeAgent class >> withProvider: aProvider [
 
 { #category : 'system prompt' }
 SmallCodeAgent >> buildSystemPrompt [
-	"Build the 4-section system prompt."
+	"Build the mode-specific system prompt."
 
-	^ String streamContents: [ :s |
-		  s nextPutAll: self identitySection; cr; cr.
-		  s nextPutAll: self vocabularySection; cr; cr.
-		  s nextPutAll: self principlesSection ]
+	^ mode = #plan
+		  ifTrue: [
+			  String streamContents: [ :s |
+				  s nextPutAll: self planIdentitySection; cr; cr.
+				  s nextPutAll: self vocabularySection; cr; cr.
+				  s nextPutAll: self planPrinciplesSection ] ]
+		  ifFalse: [
+			  String streamContents: [ :s |
+				  s nextPutAll: self identitySection; cr; cr.
+				  s nextPutAll: self vocabularySection; cr; cr.
+				  s nextPutAll: self principlesSection ] ]
 ]
 
 { #category : 'private' }
 SmallCodeAgent >> callLLM [
-	"Send current messages to LLM with tool schemas."
+	"Send current messages to LLM with mode-appropriate tool schemas."
 
 	| toolSchemas |
-	toolSchemas := toolFactory allToolSchemas.
+	toolSchemas := toolFactory toolSchemasForMode: mode.
 	^ provider complete: messages tools: toolSchemas
 ]
 
@@ -129,7 +143,8 @@ SmallCodeAgent >> initialize [
 	messages := OrderedCollection new.
 	maxSteps := 20.
 	domainPackages := OrderedCollection new.
-	stepLog := OrderedCollection new
+	stepLog := OrderedCollection new.
+	mode := #build
 ]
 
 { #category : 'private' }
@@ -159,6 +174,22 @@ SmallCodeAgent >> messages [
 	^ messages
 ]
 
+{ #category : 'accessing' }
+SmallCodeAgent >> mode [
+
+	^ mode
+]
+
+{ #category : 'accessing' }
+SmallCodeAgent >> mode: aSymbol [
+	"Set the agent mode. Valid values: #build (default) or #plan."
+
+	(#( build plan ) includes: aSymbol) ifFalse: [
+		self error: 'Invalid mode: ' , aSymbol printString , '. Use #build or #plan.' ].
+	mode := aSymbol.
+	toolFactory mode: aSymbol
+]
+
 { #category : 'running' }
 SmallCodeAgent >> prepareSession: goal focus: focusObject [
 	"Set up messages for a new agent session."
@@ -182,6 +213,57 @@ SmallCodeAgent >> prepareSession: goal focus: focusObject [
 
 	"Goal"
 	messages add: (SmallCodeMessage user: 'GOAL: ' , goal)
+]
+
+{ #category : 'system prompt' }
+SmallCodeAgent >> planIdentitySection [
+
+	^ '# Identity (PLAN MODE — READ ONLY)
+You are SmallCode, a coding agent living inside a Pharo Smalltalk image.
+You are currently in PLAN MODE. You investigate but DO NOT modify the image.
+All tools that create or change packages, classes, methods, instance variables,
+class comments, or vocabulary words are DISABLED. Calling them returns an error.
+
+Your job is to understand the goal deeply and produce a concrete, actionable
+implementation plan that a build-mode session (or a developer) can execute.
+
+You operate through an investigate-and-plan cycle:
+1. Understand the goal
+2. Browse packages, classes, methods, and comments to learn the existing design
+3. Inspect live objects and evaluate read-only expressions to confirm behavior
+4. Use narrate_method to understand existing code in domain language
+5. Synthesize findings into a structured implementation plan
+6. Call finish with the full plan as the answer (do NOT attempt to build)'
+]
+
+{ #category : 'system prompt' }
+SmallCodeAgent >> planPrinciplesSection [
+
+	^ '# Plan Mode Principles
+
+## Read-Only Discipline
+- NEVER attempt to modify the image. Mutating tools are disabled and will error.
+- Use only investigation tools: browse packages/classes/methods, inspect objects,
+  read methods, find senders/implementors, narrate methods, and evaluate code
+  purely to observe behavior.
+- Do not invent or register vocabulary words; instead, NOTE proposed new words in
+  the plan so they can be created during the build phase.
+
+## Investigate Before Planning
+- Identify the relevant existing classes, methods, and domain vocabulary.
+- Confirm assumptions by inspecting real objects and reading real code.
+- Surface unknowns and risks rather than guessing.
+
+## Deliver a Structured Plan
+Call the finish tool with an "answer" containing an ordered implementation plan:
+1. Summary — what will be built and why
+2. Affected classes/methods — what to create or change, with target packages
+3. Step-by-step implementation order
+4. Proposed new vocabulary words (selector + meaning) to register during build
+5. Test strategy — what to verify and how
+6. Risks, open questions, and assumptions
+
+Be specific and concrete. The plan is your only deliverable — produce no code changes.'
 ]
 
 { #category : 'system prompt' }
@@ -243,6 +325,27 @@ SmallCodeAgent >> provider: aProvider [
 ]
 
 { #category : 'running' }
+SmallCodeAgent >> plan: goal [
+	"Run the agent in read-only plan mode on a goal with no initial focus object.
+	 The agent investigates the image and produces an implementation plan
+	 instead of modifying anything."
+
+	^ self plan: goal on: nil
+]
+
+{ #category : 'running' }
+SmallCodeAgent >> plan: goal on: focusObject [
+	"Run the agent in read-only plan mode. Mutating tools are disabled;
+	 the agent investigates and reports a structured implementation plan via finish.
+	 goal: a natural language task description.
+	 focusObject: optional object to inspect initially."
+
+	self mode: #plan.
+	self prepareSession: goal focus: focusObject.
+	^ self runLoop
+]
+
+{ #category : 'running' }
 SmallCodeAgent >> run: goal [
 	"Run the agent on a goal with no initial focus object."
 
@@ -251,10 +354,11 @@ SmallCodeAgent >> run: goal [
 
 { #category : 'running' }
 SmallCodeAgent >> run: goal on: focusObject [
-	"Main entry point. Run the agent loop until finish or maxSteps.
+	"Main entry point. Run the agent loop in build mode until finish or maxSteps.
 	 goal: a natural language task description.
 	 focusObject: optional object to inspect initially."
 
+	self mode: #build.
 	self prepareSession: goal focus: focusObject.
 	^ self runLoop
 ]

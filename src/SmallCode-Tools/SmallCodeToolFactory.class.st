@@ -11,7 +11,8 @@ Class {
 		'projector',
 		'vocabulary',
 		'narrator',
-		'sandbox'
+		'sandbox',
+		'mode'
 	],
 	#category : 'SmallCode-Tools',
 	#package : 'SmallCode-Tools'
@@ -58,6 +59,40 @@ SmallCodeToolFactory >> allTools [
 		  yourself
 ]
 
+{ #category : 'building' }
+SmallCodeToolFactory >> mutatingToolNames [
+	"Names of tools that modify the live image. These are disabled in plan mode."
+
+	^ #( 'create_class' 'create_package' 'add_method' 'remove_method'
+	      'add_instance_variable' 'set_class_comment' 'register_word' ) asSet
+]
+
+{ #category : 'building' }
+SmallCodeToolFactory >> readOnlyTools [
+	"Return all tools except those that mutate the live image."
+
+	| mutating |
+	mutating := self mutatingToolNames.
+	^ self allTools reject: [ :t | mutating includes: t name ]
+]
+
+{ #category : 'building' }
+SmallCodeToolFactory >> toolSchemasForMode: aSymbol [
+	"Return OpenAI schemas for the tools available in the given mode."
+
+	^ ((self toolsForMode: aSymbol) collect: [ :t | t openAISchema ]) asArray
+]
+
+{ #category : 'building' }
+SmallCodeToolFactory >> toolsForMode: aSymbol [
+	"Return the tools available in the given mode.
+	 #plan: read-only tools only. Anything else: all tools."
+
+	^ aSymbol = #plan
+		  ifTrue: [ self readOnlyTools ]
+		  ifFalse: [ self allTools ]
+]
+
 { #category : 'browser tools' }
 SmallCodeToolFactory >> browserTools [
 
@@ -90,6 +125,10 @@ SmallCodeToolFactory >> dslTools [
 SmallCodeToolFactory >> executeTool: aToolName arguments: argumentsDict [
 	"Find and execute a tool by name."
 
+	(mode = #plan and: [ self mutatingToolNames includes: aToolName ])
+		ifTrue: [
+			^ Dictionary with: 'error'
+				  -> ('Tool ' , aToolName , ' is disabled in plan mode (read-only). Produce an implementation plan and call finish instead.') ].
 	self allTools do: [ :tool |
 		tool name = aToolName ifTrue: [
 			^ [ tool applyTo: argumentsDict ]
@@ -103,7 +142,20 @@ SmallCodeToolFactory >> initialize [
 
 	super initialize.
 	narrator := SmallCodeNarrator new.
-	sandbox := SmallCodeSandbox withDefaults
+	sandbox := SmallCodeSandbox withDefaults.
+	mode := #build
+]
+
+{ #category : 'accessing' }
+SmallCodeToolFactory >> mode [
+
+	^ mode
+]
+
+{ #category : 'accessing' }
+SmallCodeToolFactory >> mode: aSymbol [
+
+	mode := aSymbol
 ]
 
 { #category : 'accessing' }
