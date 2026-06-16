@@ -59,40 +59,6 @@ SmallCodeToolFactory >> allTools [
 		  yourself
 ]
 
-{ #category : 'building' }
-SmallCodeToolFactory >> mutatingToolNames [
-	"Names of tools that modify the live image. These are disabled in plan mode."
-
-	^ #( 'create_class' 'create_package' 'add_method' 'remove_method'
-	      'add_instance_variable' 'set_class_comment' 'register_word' ) asSet
-]
-
-{ #category : 'building' }
-SmallCodeToolFactory >> readOnlyTools [
-	"Return all tools except those that mutate the live image."
-
-	| mutating |
-	mutating := self mutatingToolNames.
-	^ self allTools reject: [ :t | mutating includes: t name ]
-]
-
-{ #category : 'building' }
-SmallCodeToolFactory >> toolSchemasForMode: aSymbol [
-	"Return OpenAI schemas for the tools available in the given mode."
-
-	^ ((self toolsForMode: aSymbol) collect: [ :t | t openAISchema ]) asArray
-]
-
-{ #category : 'building' }
-SmallCodeToolFactory >> toolsForMode: aSymbol [
-	"Return the tools available in the given mode.
-	 #plan: read-only tools only. Anything else: all tools."
-
-	^ aSymbol = #plan
-		  ifTrue: [ self readOnlyTools ]
-		  ifFalse: [ self allTools ]
-]
-
 { #category : 'browser tools' }
 SmallCodeToolFactory >> browserTools [
 
@@ -158,6 +124,14 @@ SmallCodeToolFactory >> mode: aSymbol [
 	mode := aSymbol
 ]
 
+{ #category : 'building' }
+SmallCodeToolFactory >> mutatingToolNames [
+	"Names of tools that modify the live image. These are disabled in plan mode."
+
+	^ #( 'create_class' 'create_package' 'add_method' 'remove_method'
+	      'add_instance_variable' 'set_class_comment' 'register_word' ) asSet
+]
+
 { #category : 'accessing' }
 SmallCodeToolFactory >> narrator [
 
@@ -174,6 +148,15 @@ SmallCodeToolFactory >> projector [
 SmallCodeToolFactory >> projector: aProjector [
 
 	projector := aProjector
+]
+
+{ #category : 'building' }
+SmallCodeToolFactory >> readOnlyTools [
+	"Return all tools except those that mutate the live image."
+
+	| mutating |
+	mutating := self mutatingToolNames.
+	^ self allTools reject: [ :t | mutating includes: t name ]
 ]
 
 { #category : 'accessing' }
@@ -426,7 +409,7 @@ SmallCodeToolFactory >> toolFindMethods [
 						             with: 'class' -> m methodClass name
 						             with: 'selector' -> m selector ].
 				  Dictionary
-					  with: 'methods' -> results
+					  with: 'methods' -> results asArray
 					  with: 'total_found' -> methods size ]
 ]
 
@@ -536,11 +519,11 @@ SmallCodeToolFactory >> toolGetClassMethods [
 					  cls ifNotNil: [
 						  result at: cName put: (Dictionary
 								   with: 'instance' -> (selectorsOnly
-											    ifTrue: [ cls selectors sorted ]
-											    ifFalse: [ (cls selectors sorted collect: [ :s | cls sourceCodeAt: s ]) ])
+											    ifTrue: [ cls selectors sorted asArray]
+											    ifFalse: [ (cls selectors sorted collect: [ :s | cls sourceCodeAt: s ]) asArray ])
 								   with: 'class' -> (selectorsOnly
-											   ifTrue: [ cls class selectors sorted ]
-											   ifFalse: [ (cls class selectors sorted collect: [ :s | cls class sourceCodeAt: s ]) ])) ] ].
+											   ifTrue: [ cls class selectors sorted asArray]
+											   ifFalse: [ (cls class selectors sorted collect: [ :s | cls class sourceCodeAt: s ]) asArray ])) ] ].
 				  Dictionary with: 'methods_per_class' -> result ]
 ]
 
@@ -784,6 +767,13 @@ SmallCodeToolFactory >> toolRunTests [
 								   e class name , ': ' , e description ]) ]
 ]
 
+{ #category : 'building' }
+SmallCodeToolFactory >> toolSchemasForMode: aSymbol [
+	"Return OpenAI schemas for the tools available in the given mode."
+
+	^ ((self toolsForMode: aSymbol) collect: [ :t | t openAISchema ]) asArray
+]
+
 { #category : 'agent tools' }
 SmallCodeToolFactory >> toolSendersOf [
 
@@ -864,6 +854,16 @@ SmallCodeToolFactory >> toolVocabulary [
 					  with:
 					  'session_created' -> vocabulary formatSessionCreatedForPrompt
 					  with: 'total_entries' -> vocabulary size ]
+]
+
+{ #category : 'building' }
+SmallCodeToolFactory >> toolsForMode: aSymbol [
+	"Return the tools available in the given mode.
+	 #plan: read-only tools only. Anything else: all tools."
+
+	^ aSymbol = #plan
+		  ifTrue: [ self readOnlyTools ]
+		  ifFalse: [ self allTools ]
 ]
 
 { #category : 'accessing' }
