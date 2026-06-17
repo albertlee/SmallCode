@@ -13,6 +13,13 @@ More details:
 
 [![Intro Video](docs/images/bilibili_clip.png)](https://www.bilibili.com/video/BV1GKjL6GESJ/)
 
+## Acknowledgements
+
+Partial code from:
+https://github.com/omarabedelkader/ChatPharo
+
+
+
 
 ## Project Status
 
