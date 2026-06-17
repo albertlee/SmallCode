@@ -27,6 +27,38 @@ Class {
 	#package : 'SmallCode-UI'
 }
 
+{ #category : 'running' }
+SmallCodeChat >> cancelMessage [
+
+	promptProcess ifNotNil: [ :p | p terminate ]
+]
+
+{ #category : 'running' }
+SmallCodeChat >> clearChat [
+
+	messages removeAll.
+	history removeAll.
+	projector reset.
+	onChatReset ifNotNil: [ :blk | blk value ]
+]
+
+{ #category : 'private' }
+SmallCodeChat >> executeToolCalls: toolCalls [
+	"Execute each tool call and add results to history"
+
+	toolCalls do: [ :tc |
+		| result resultJson |
+		UIManager default defer: [
+			onToolExecution ifNotNil: [ :blk | blk value: tc functionName ] ].
+
+		result := toolFactory
+			          ifNil: [ Dictionary with: 'error' -> 'No tool factory' ]
+			          ifNotNil: [
+			          toolFactory executeTool: tc functionName arguments: tc arguments ].
+		resultJson := STONJSON toString: result.
+		history add: (SmallCodeMessage toolResult: resultJson callId: tc id) ]
+]
+
 { #category : 'initialization' }
 SmallCodeChat >> initialize [
 
@@ -41,6 +73,12 @@ SmallCodeChat >> initialize [
 SmallCodeChat >> messages [
 
 	^ messages
+]
+
+{ #category : 'accessing' }
+SmallCodeChat >> presenter [
+
+	^ SmallCodeChatPresenter on: self
 ]
 
 { #category : 'accessing' }
@@ -59,6 +97,68 @@ SmallCodeChat >> provider [
 SmallCodeChat >> provider: aProvider [
 
 	provider := aProvider
+]
+
+{ #category : 'private' }
+SmallCodeChat >> runConversation: uiMessage [
+	"Run the LLM conversation loop. Handles tool calls up to maxToolRounds."
+
+	| toolSchemas rounds response |
+	toolSchemas := toolFactory
+		               ifNil: [ nil ]
+		               ifNotNil: [ toolFactory allToolSchemas ].
+	rounds := 0.
+
+	[
+	rounds >= maxToolRounds ifTrue: [
+		uiMessage answer: 'Max tool rounds reached.'.
+		UIManager default defer: [
+			onAnswerReceived ifNotNil: [ :blk | blk value: uiMessage ] ].
+		^ self ].
+
+	response := provider complete: history tools: toolSchemas.
+	history add: response.
+
+	response hasToolCalls
+		ifTrue: [
+			rounds := rounds + 1.
+			self executeToolCalls: response toolCalls ]
+		ifFalse: [
+			uiMessage
+				answer: (response content ifNil: [ '' ]);
+				thinking: ''.
+			UIManager default defer: [
+				onAnswerReceived ifNotNil: [ :blk | blk value: uiMessage ] ].
+			^ self ] ] repeat
+]
+
+{ #category : 'running' }
+SmallCodeChat >> sendMessage: text [
+
+	| uiMessage |
+	text trimBoth ifEmpty: [ ^ self ].
+
+	uiMessage := SmallCodeUIMessage new
+		             content: text;
+		             yourself.
+	messages add: uiMessage.
+	history add: (SmallCodeMessage user: text).
+
+	promptProcess := [
+	                  self runConversation: uiMessage
+	                 ] forkAt: Processor userBackgroundPriority
+]
+
+{ #category : 'accessing' }
+SmallCodeChat >> toolFactory [
+
+	^ toolFactory
+]
+
+{ #category : 'accessing' }
+SmallCodeChat >> toolFactory: aFactory [
+
+	toolFactory := aFactory
 ]
 
 { #category : 'accessing' }
@@ -96,104 +196,4 @@ SmallCodeChat >> whenErrorReceivedDo: aBlock [
 SmallCodeChat >> whenToolExecutionDo: aBlock [
 
 	onToolExecution := aBlock
-]
-
-{ #category : 'running' }
-SmallCodeChat >> cancelMessage [
-
-	promptProcess ifNotNil: [ :p | p terminate ]
-]
-
-{ #category : 'running' }
-SmallCodeChat >> clearChat [
-
-	messages removeAll.
-	history removeAll.
-	projector reset.
-	onChatReset ifNotNil: [ :blk | blk value ]
-]
-
-{ #category : 'accessing' }
-SmallCodeChat >> presenter [
-
-	^ SmallCodeChatPresenter on: self
-]
-
-{ #category : 'running' }
-SmallCodeChat >> sendMessage: text [
-
-	| uiMessage |
-	text trimBoth ifEmpty: [ ^ self ].
-
-	uiMessage := SmallCodeUIMessage new
-		             content: text;
-		             yourself.
-	messages add: uiMessage.
-	history add: (SmallCodeMessage user: text).
-
-	promptProcess := [
-	                  self runConversation: uiMessage
-	                 ] forkAt: Processor userBackgroundPriority
-]
-
-{ #category : 'private' }
-SmallCodeChat >> runConversation: uiMessage [
-	"Run the LLM conversation loop. Handles tool calls up to maxToolRounds."
-
-	| toolSchemas rounds response |
-	toolSchemas := toolFactory
-		               ifNil: [ nil ]
-		               ifNotNil: [ toolFactory allToolSchemas ].
-	rounds := 0.
-
-	[
-	rounds >= maxToolRounds ifTrue: [
-		uiMessage answer: 'Max tool rounds reached.'.
-		UIManager default defer: [
-			onAnswerReceived ifNotNil: [ :blk | blk value: uiMessage ] ].
-		^ self ].
-
-	response := provider complete: history tools: toolSchemas.
-	history add: response.
-
-	response hasToolCalls
-		ifTrue: [
-			rounds := rounds + 1.
-			self executeToolCalls: response toolCalls ]
-		ifFalse: [
-			uiMessage
-				answer: (response content ifNil: [ '' ]);
-				thinking: ''.
-			UIManager default defer: [
-				onAnswerReceived ifNotNil: [ :blk | blk value: uiMessage ] ].
-			^ self ] ] repeat
-]
-
-{ #category : 'private' }
-SmallCodeChat >> executeToolCalls: toolCalls [
-	"Execute each tool call and add results to history"
-
-	toolCalls do: [ :tc |
-		| result resultJson |
-		UIManager default defer: [
-			onToolExecution ifNotNil: [ :blk | blk value: tc functionName ] ].
-
-		result := toolFactory
-			          ifNil: [ Dictionary with: 'error' -> 'No tool factory' ]
-			          ifNotNil: [
-			          toolFactory executeTool: tc functionName arguments: tc arguments ].
-		resultJson := STONJSON toString: result.
-		history add: (SmallCodeMessage toolResult: resultJson callId: tc id) ]
-]
-
-{ #category : 'accessing' }
-SmallCodeChat >> toolFactory [
-
-	^ toolFactory
-]
-
-{ #category : 'accessing' }
-SmallCodeChat >> toolFactory: aFactory [
-
-	toolFactory := aFactory
 ]

@@ -23,28 +23,6 @@ Class {
 	#package : 'SmallCode-UI'
 }
 
-{ #category : 'layout' }
-SmallCodeChatPresenter >> defaultLayout [
-
-	^ SpBoxLayout newVertical
-		  spacing: 10;
-		  add: scrollableMessages expand: true;
-		  add: (SpBoxLayout newHorizontal
-				   spacing: 5;
-				   add: messageTextField;
-				   add: (SpBoxLayout newHorizontal
-						    add: submitButton expand: true;
-						    add: cancelButton expand: true;
-						    yourself)
-				   withConstraints: [ :c |
-					   c
-						   width: 30;
-						   padding: 0 ];
-				   yourself)
-		  expand: false;
-		  yourself
-]
-
 { #category : 'initialization' }
 SmallCodeChatPresenter >> connectPresenters [
 
@@ -89,6 +67,28 @@ SmallCodeChatPresenter >> connectPresenters [
 		messageTextField enabled: true ].
 
 	model whenChatResetDo: [ self reloadMessages ]
+]
+
+{ #category : 'layout' }
+SmallCodeChatPresenter >> defaultLayout [
+
+	^ SpBoxLayout newVertical
+		  spacing: 10;
+		  add: scrollableMessages expand: true;
+		  add: (SpBoxLayout newHorizontal
+				   spacing: 5;
+				   add: messageTextField;
+				   add: (SpBoxLayout newHorizontal
+						    add: submitButton expand: true;
+						    add: cancelButton expand: true;
+						    yourself)
+				   withConstraints: [ :c |
+					   c
+						   width: 30;
+						   padding: 0 ];
+				   yourself)
+		  expand: false;
+		  yourself
 ]
 
 { #category : 'initialization' }

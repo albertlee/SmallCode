@@ -18,7 +18,7 @@ Class {
 
 { #category : 'instance creation' }
 SmallCodeApp class >> open [
-
+	<script>
 	^ self new open
 ]
 

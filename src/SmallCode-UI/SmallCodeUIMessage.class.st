@@ -23,28 +23,6 @@ Class {
 	#package : 'SmallCode-UI'
 }
 
-{ #category : 'initialization' }
-SmallCodeUIMessage >> initialize [
-
-	super initialize.
-	content := ''.
-	answer := ''.
-	thinking := ''.
-	assistantLabel := 'SmallCode'
-]
-
-{ #category : 'accessing' }
-SmallCodeUIMessage >> content [
-
-	^ content
-]
-
-{ #category : 'accessing' }
-SmallCodeUIMessage >> content: aString [
-
-	content := aString
-]
-
 { #category : 'accessing' }
 SmallCodeUIMessage >> answer [
 
@@ -56,18 +34,6 @@ SmallCodeUIMessage >> answer: aString [
 
 	answer := aString.
 	self resetPresenter
-]
-
-{ #category : 'accessing' }
-SmallCodeUIMessage >> thinking [
-
-	^ thinking
-]
-
-{ #category : 'accessing' }
-SmallCodeUIMessage >> thinking: aString [
-
-	thinking := aString
 ]
 
 { #category : 'accessing' }
@@ -83,6 +49,34 @@ SmallCodeUIMessage >> assistantLabel: aString [
 ]
 
 { #category : 'accessing' }
+SmallCodeUIMessage >> content [
+
+	^ content
+]
+
+{ #category : 'accessing' }
+SmallCodeUIMessage >> content: aString [
+
+	content := aString
+]
+
+{ #category : 'accessing' }
+SmallCodeUIMessage >> height [
+
+	^ self presenter height
+]
+
+{ #category : 'initialization' }
+SmallCodeUIMessage >> initialize [
+
+	super initialize.
+	content := ''.
+	answer := ''.
+	thinking := ''.
+	assistantLabel := 'SmallCode'
+]
+
+{ #category : 'accessing' }
 SmallCodeUIMessage >> presenter [
 
 	^ presenter ifNil: [ presenter := SmallCodeMessagePresenter on: self ]
@@ -95,7 +89,13 @@ SmallCodeUIMessage >> resetPresenter [
 ]
 
 { #category : 'accessing' }
-SmallCodeUIMessage >> height [
+SmallCodeUIMessage >> thinking [
 
-	^ self presenter height
+	^ thinking
+]
+
+{ #category : 'accessing' }
+SmallCodeUIMessage >> thinking: aString [
+
+	thinking := aString
 ]
